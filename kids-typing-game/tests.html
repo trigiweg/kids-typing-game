@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>打字小勇者 測試</title>
+<style>
+body { font-family: system-ui, 'Microsoft JhengHei', sans-serif; padding: 16px; }
+.pass { color: #0a7a3d; }
+.fail { color: #b00020; font-weight: 700; }
+#summary { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div id="summary">執行中…</div>
+<ul id="out"></ul>
+
+<script src="js/rules.js"></script>
+<script src="js/keymap.js"></script>
+<script src="js/bank.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/session.js"></script>
+<script src="js/input.js"></script>
+<script>
+(function () {
+  var G = window.Game, R = G.rules, K = G.keymap, S = G.storage;
+  var results = [];
+
+  function test(name, fn) {
+    try {
+      fn();
+      results.push({ name: name, ok: true });
+    } catch (e) {
+      results.push({ name: name, ok: false, msg: e.message });
+    }
+  }
+  function eq(actual, expected, label) {
+    if (actual !== expected) throw new Error((label || '') + ' 預期 ' + expected + '，實際 ' + actual);
+  }
+  function memoryBackend() {
+    var m = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+      setItem: function (k, v) { m[k] = String(v); },
+      removeItem: function (k) { delete m[k]; }
+    };
+  }
+  function card(keys) { return { display: '', hint: '', keys: keys, id: 'x' }; }
+
+  // ---- 規則 ----
+  test('comboMultiplier 邊界 4/5/9/10', function () {
+    eq(R.comboMultiplier(0), 1); eq(R.comboMultiplier(4), 1);
+    eq(R.comboMultiplier(5), 2); eq(R.comboMultiplier(9), 2);
+    eq(R.comboMultiplier(10), 3); eq(R.comboMultiplier(25), 3);
+  });
+  test('starsFor 邊界 79/80/94/95', function () {
+    eq(R.starsFor(0.79), 1, '79%'); eq(R.starsFor(0.80), 2, '80%');
+    eq(R.starsFor(0.94), 2, '94%'); eq(R.starsFor(0.95), 3, '95%');
+    eq(R.starsFor(R.accuracy(96, 100)), 3, '96/100');
+  });
+  test('heartsFor 初級 0、中級 5、高級 3', function () {
+    eq(R.heartsFor('beginner'), 0); eq(R.heartsFor('intermediate'), 5); eq(R.heartsFor('advanced'), 3);
+  });
+
+  // ---- 注音鍵位 ----
+  test('注音鍵位：標準配置逐一核對', function () {
+    var expected = {
+      Digit1: 'ㄅ', KeyQ: 'ㄆ', KeyA: 'ㄇ', KeyZ: 'ㄈ', Digit2: 'ㄉ', KeyW: 'ㄊ', KeyS: 'ㄋ', KeyX: 'ㄌ',
+      Digit3: 'ˇ', KeyE: 'ㄍ', KeyD: 'ㄎ', KeyC: 'ㄏ', Digit4: 'ˋ', KeyR: 'ㄐ', KeyF: 'ㄑ', KeyV: 'ㄒ',
+      Digit5: 'ㄓ', KeyT: 'ㄔ', KeyG: 'ㄕ', KeyB: 'ㄖ', Digit6: 'ˊ', KeyY: 'ㄗ', KeyH: 'ㄘ', KeyN: 'ㄙ',
+      Digit7: '˙', KeyU: 'ㄧ', KeyJ: 'ㄨ', KeyM: 'ㄩ', Digit8: 'ㄚ', KeyI: 'ㄛ', KeyK: 'ㄜ', Comma: 'ㄝ',
+      Digit9: 'ㄞ', KeyO: 'ㄠ', KeyL: 'ㄟ', Period: 'ㄡ', Digit0: 'ㄢ', KeyP: 'ㄣ', Semicolon: 'ㄤ',
+      Slash: 'ㄥ', Minus: 'ㄦ'
+    };
+    Object.keys(expected).forEach(function (c) { eq(K.zhuyin[c], expected[c], c); });
+    eq(Object.keys(K.zhuyin).length, Object.keys(expected).length + 1, '鍵數（含 Space）');
+    eq(K.symbolToCode['ㄅ'], 'Digit1');
+  });
+
+  // ---- 題庫 ----
+  var BANKS = ['beginner-zh', 'intermediate-zh', 'advanced-zh', 'beginner-en', 'intermediate-en', 'advanced-en'];
+  test('題庫：六份各至少 50 題且不重複', function () {
+    BANKS.forEach(function (k) {
+      var list = G.bank[k];
+      if (list.length < 50) throw new Error(k + ' 只有 ' + list.length + ' 題');
+      var seen = {};
+      list.forEach(function (q) {
+        var sig = q.keys.join(',');
+        if (seen[sig]) throw new Error(k + ' 重複：' + q.display);
+        seen[sig] = 1;
+        q.keys.forEach(function (c) { if (!K.isValidCode(k.slice(-2), c)) throw new Error(k + ' 不合法按鍵 ' + c + ' 於 ' + q.display); });
+      });
+    });
+  });
+  test('題庫：初級中文不含聲調鍵', function () {
+    G.bank['beginner-zh'].forEach(function (q) {
+      q.keys.forEach(function (c) { if (K.isTone(c)) throw new Error('初級含聲調：' + q.display); });
+    });
+  });
+  test('題庫：中級中文不含聲調鍵', function () {
+    G.bank['intermediate-zh'].forEach(function (q) {
+      q.keys.forEach(function (c) { if (K.isTone(c)) throw new Error('中級含聲調：' + q.display); });
+    });
+  });
+  test('題庫：高級中文每個音節都以聲調或空白結尾', function () {
+    G.bank['advanced-zh'].forEach(function (q) {
+      if (!K.isTone(q.keys[q.keys.length - 1])) throw new Error('結尾不是聲調：' + q.display);
+      if (!q.keys.some(K.isTone)) throw new Error('沒有聲調：' + q.display);
+    });
+  });
+  test('題庫：高級中文一聲字卡用空白鍵（「老師」ㄕ 結尾為 Space）', function () {
+    var q = G.bank['advanced-zh'].filter(function (x) { return x.hint === '老師'; })[0];
+    eq(q.keys[q.keys.length - 1], 'Space');
+  });
+  test('pickQuestions 回傳指定題數', function () {
+    eq(G.pickQuestions('beginner', 'zh', 1, 12).length, 12);
+    eq(G.pickQuestions('advanced', 'en', 'daily', 8).length, 8);
+  });
+
+  // ---- 規則狀態（字卡玩法、連擊、愛心）----
+  test('打對：依序輸入 c a t 清除字卡並加分', function () {
+    var s = G.session.create({ hearts: 5 });
+    s.addCard(card(['KeyC', 'KeyA', 'KeyT']));
+    eq(s.press('KeyC').type, 'correct'); eq(s.press('KeyA').type, 'correct');
+    eq(s.press('KeyT').type, 'clear');
+    eq(s.live.length, 0); eq(s.combo, 1); eq(s.score, 30);
+  });
+  test('打錯：字卡保留，已輸入進度不變，連擊歸零', function () {
+    var s = G.session.create({ hearts: 5 });
+    var c = s.addCard(card(['KeyC', 'KeyA', 'KeyT']));
+    s.press('KeyC');
+    var r = s.press('KeyX');
+    eq(r.type, 'wrong'); eq(c.pos, 1); eq(s.live.length, 1); eq(s.combo, 0);
+  });
+  test('連擊：第 5 張起分數 x2，打錯歸零', function () {
+    var s = G.session.create({ hearts: 5 });
+    for (var i = 0; i < 4; i++) { s.addCard(card(['KeyA'])); s.press('KeyA'); }
+    eq(s.score, 40, '前四張');
+    s.addCard(card(['KeyA'])); s.press('KeyA');
+    eq(s.combo, 5); eq(s.score, 40 + 20, '第五張 x2');
+    s.press('KeyZ');
+    eq(s.combo, 0);
+  });
+  test('漏掉：中級 5 顆愛心扣 1 顆並歸零連擊', function () {
+    var s = G.session.create({ hearts: 5 });
+    s.addCard(card(['KeyA'])); s.press('KeyA');
+    var c = s.addCard(card(['KeyB']));
+    s.miss(c);
+    eq(s.hearts, 4); eq(s.combo, 0); eq(s.over, false);
+  });
+  test('漏掉：初級沒有愛心，不扣也不會失敗', function () {
+    var s = G.session.create({ hearts: 0 });
+    for (var i = 0; i < 20; i++) s.miss(s.addCard(card(['KeyA'])));
+    eq(s.hearts, 0); eq(s.over, false); eq(s.missed, 20);
+  });
+  test('愛心用完：關卡失敗', function () {
+    var s = G.session.create({ hearts: 3 });
+    for (var i = 0; i < 3; i++) s.miss(s.addCard(card(['KeyA'])));
+    eq(s.over, true);
+  });
+  test('多張字卡：先打最下面（y 最大）那張', function () {
+    var s = G.session.create({ hearts: 5 });
+    var a = s.addCard(card(['KeyA', 'KeyB'])); a.y = 10;
+    var b = s.addCard(card(['KeyA', 'KeyC'])); b.y = 90;
+    s.press('KeyA');
+    eq(s.locked, b);
+  });
+
+  // ---- 輸入：螢幕鍵盤與實體鍵盤等價 ----
+  test('螢幕鍵盤 tap 與實體按鍵 Digit1 結果相同', function () {
+    function run(useTap) {
+      var s = G.session.create({ hearts: 5 });
+      s.addCard(card(['Digit1']));
+      G.input.attach(function (code) { return s.press(code); }, 'zh');
+      var r = useTap ? G.input.tap('Digit1') : G.input.fromEvent({ code: 'Digit1', preventDefault: function () {} });
+      G.input.detach();
+      return r.type + ':' + s.score + ':' + s.combo;
+    }
+    eq(run(true), run(false));
+    eq(run(true), 'clear:10:1');
+  });
+  test('只處理當前模式的有效鍵：英文模式忽略 Digit1、不呼叫 preventDefault', function () {
+    var called = 0, prevented = 0;
+    G.input.attach(function () { called++; }, 'en');
+    G.input.fromEvent({ code: 'Digit1', preventDefault: function () { prevented++; } });
+    G.input.fromEvent({ code: 'F5', preventDefault: function () { prevented++; } });
+    G.input.detach();
+    eq(called, 0); eq(prevented, 0);
+  });
+  test('有效鍵會呼叫 preventDefault（空白鍵不捲動）', function () {
+    var prevented = 0;
+    G.input.attach(function () {}, 'zh');
+    G.input.fromEvent({ code: 'Space', preventDefault: function () { prevented++; } });
+    G.input.detach();
+    eq(prevented, 1);
+  });
+  test('系統輸入法中文狀態：event.key 為 Process 仍依 event.code 判斷', function () {
+    var s = G.session.create({ hearts: 5 });
+    s.addCard(card(['Digit1']));
+    G.input.attach(function (code) { return s.press(code); }, 'zh');
+    var r = G.input.fromEvent({ code: 'Digit1', key: 'Process', preventDefault: function () {} });
+    G.input.detach();
+    eq(r.type, 'clear');
+  });
+
+  // ---- 進度儲存 ----
+  test('進度可存取：重新載入後星星仍在', function () {
+    S.setBackend(memoryBackend());
+    S.load();
+    S.recordLevel('intermediate-zh-1', 2);
+    S.load();
+    eq(S.starsOf('intermediate-zh-1'), 2);
+    S.setBackend(null);
+  });
+  test('星星只增不減', function () {
+    S.setBackend(memoryBackend()); S.load();
+    S.recordLevel('k', 3); S.recordLevel('k', 1);
+    eq(S.starsOf('k'), 3);
+    S.setBackend(null);
+  });
+  test('儲存空間拋錯：改用記憶體進度並標記不會儲存', function () {
+    S.setBackend({
+      getItem: function () { throw new Error('blocked'); },
+      setItem: function () { throw new Error('blocked'); },
+      removeItem: function () { throw new Error('blocked'); }
+    });
+    S.load();
+    S.recordLevel('x', 2);
+    eq(S.isVolatile(), true); eq(S.starsOf('x'), 2);
+    S.setBackend(null);
+  });
+  test('貼紙：集滿 5 張解鎖海底主題', function () {
+    S.setBackend(memoryBackend()); S.load();
+    var r;
+    for (var i = 0; i < 4; i++) { r = S.addSticker(); eq(r.unlocked, null); }
+    r = S.addSticker();
+    eq(r.unlocked, 'ocean');
+    eq(S.get().themes.length, 2);
+    S.setBackend(null);
+  });
+  test('每日挑戰：同日第二次不發貼紙，隔日可再領', function () {
+    S.setBackend(memoryBackend()); S.load();
+    var realToday = S.today;
+    S.today = function () { return '2026-11-01'; };
+    eq(S.claimDaily(), true); eq(S.claimDaily(), false);
+    S.today = function () { return '2026-11-02'; };
+    eq(S.claimDaily(), true);
+    S.today = realToday;
+    S.setBackend(null);
+  });
+  test('重設：確認後清空進度', function () {
+    S.setBackend(memoryBackend()); S.load();
+    S.recordLevel('y', 3); S.addSticker();
+    S.reset();
+    eq(S.starsOf('y'), 0); eq(S.get().stickers, 0);
+    S.setBackend(null);
+  });
+
+  var out = document.getElementById('out');
+  var failed = 0;
+  results.forEach(function (r) {
+    var li = document.createElement('li');
+    li.className = r.ok ? 'pass' : 'fail';
+    li.textContent = (r.ok ? '通過　' : '失敗　') + r.name + (r.ok ? '' : '：' + r.msg);
+    if (!r.ok) failed++;
+    out.appendChild(li);
+  });
+  var summary = document.getElementById('summary');
+  summary.textContent = failed === 0 ? '全部通過（' + results.length + ' 項）' : failed + ' 項失敗，共 ' + results.length + ' 項';
+  summary.className = failed === 0 ? 'pass' : 'fail';
+  document.title = failed === 0 ? 'ALL PASS' : 'FAILED ' + failed;
+})();
+</script>
+</body>
+</html>

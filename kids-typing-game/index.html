@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>打字小勇者</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="space">
+
+<div id="notice" class="notice" hidden>這台裝置不能儲存進度，關掉網頁後進度會消失。</div>
+
+<main id="app">
+
+  <!-- 1 首頁 -->
+  <section id="screen-home" class="screen active" aria-label="首頁">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c6 4 9 11 8 20l-8 6-8-6c-1-9 2-16 8-20z"/><circle cx="20" cy="15" r="3"/><path d="M12 24l-5 6 7-1M28 24l5 6-7-1M17 33l3 4 3-4"/></svg></div>
+        <h1>打字小勇者</h1>
+      </div>
+      <div class="pills">
+        <div class="pill"><svg width="26" height="26" viewBox="0 0 24 24" fill="#FFD23F" aria-hidden="true"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.6 5.7 21.1l1.5-7L2 9.3l7-.8z"/></svg><span id="stat-stickers">貼紙 0</span></div>
+        <div class="pill"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FF8A5B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22c4-1 7-4 7-8 0-3-2-5-3-7-1 2-2 3-4 3 0-3-1-6-3-8-1 4-4 6-4 11 0 5 3 8 7 9z"/></svg><span id="stat-combo">最佳連擊 0</span></div>
+      </div>
+    </header>
+
+    <div class="home-grid">
+      <div class="home-main">
+        <h2>我是幾年級？</h2>
+        <div class="tiers" role="group" aria-label="選擇年級">
+          <button type="button" class="tier" data-tier="beginner" aria-pressed="false">
+            <span class="tier-name">初級</span><span class="tier-grade">1–2 年級</span>
+            <span class="tier-sample">ㄅ<br>cat</span><span class="tier-note">沒有愛心，安心練習</span>
+          </button>
+          <button type="button" class="tier" data-tier="intermediate" aria-pressed="true">
+            <span class="check" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFD23F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <span class="tier-name">中級</span><span class="tier-grade">3–4 年級</span>
+            <span class="tier-sample">ㄇㄚ<br>apple</span><span class="tier-note">5 顆愛心</span>
+          </button>
+          <button type="button" class="tier" data-tier="advanced" aria-pressed="false">
+            <span class="tier-name">高級</span><span class="tier-grade">5–6 年級</span>
+            <span class="tier-sample">ㄒㄩㄝˊ<br>school</span><span class="tier-note">3 顆愛心，要打聲調</span>
+          </button>
+        </div>
+
+        <h2>想練哪一種？</h2>
+        <div class="modes" role="group" aria-label="選擇語言">
+          <button type="button" class="mode" data-mode="zh" aria-pressed="true">中文注音</button>
+          <button type="button" class="mode latin" data-mode="en" aria-pressed="false">English</button>
+        </div>
+      </div>
+
+      <aside class="home-side">
+        <div class="panel">
+          <h3>今日挑戰</h3>
+          <p id="daily-text">完成今天的挑戰，多拿 1 張貼紙。每天只能拿一次。</p>
+          <button type="button" id="btn-daily" class="btn btn-coral">去挑戰</button>
+        </div>
+        <div class="panel">
+          <h3>主題</h3>
+          <div id="themes" class="themes" role="group" aria-label="選擇主題"></div>
+        </div>
+        <button type="button" id="btn-start" class="btn btn-main">開始闖關</button>
+        <button type="button" id="btn-reset" class="link">重設進度</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 關卡地圖 -->
+  <section id="screen-map" class="screen" aria-label="關卡地圖">
+    <header class="topbar">
+      <button type="button" id="map-back" class="btn btn-ghost">回首頁</button>
+      <h1 id="map-title" class="map-title">關卡地圖</h1>
+      <span class="spacer"></span>
+    </header>
+    <div id="levels" class="levels"></div>
+  </section>
+
+  <!-- 2 遊戲中 -->
+  <section id="screen-play" class="screen" aria-label="遊戲中">
+    <header class="hud">
+      <div class="hud-left">
+        <button type="button" id="btn-pause" class="icon-btn" aria-label="暫停"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg></button>
+        <div id="level-title" class="level-title"></div>
+      </div>
+      <div id="hud-hearts" class="hearts" hidden></div>
+      <div class="hud-right">
+        <div id="hud-combo" class="pill coral">連擊 0</div>
+        <div id="hud-score" class="pill latin">0</div>
+      </div>
+    </header>
+    <div id="play-area" class="play-area"></div>
+    <div class="play-info"><span id="hud-cleared">已消除 0</span><span id="next-hint" class="next-hint"></span></div>
+    <div id="keyboard" class="keyboard"></div>
+    <div id="pause-overlay" class="overlay" hidden>
+      <div class="dialog">
+        <h2>休息一下</h2>
+        <button type="button" id="btn-resume" class="btn btn-main">繼續玩</button>
+        <button type="button" id="btn-leave" class="btn btn-ghost">離開這一關</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 結算 -->
+  <section id="screen-result" class="screen result" aria-label="結算">
+    <div class="result-top">
+      <div id="result-level" class="result-level"></div>
+      <h1 id="result-title" class="result-title">過關了！</h1>
+      <div id="result-stars" class="result-stars" role="img" aria-label="3 顆星"></div>
+      <p id="result-msg" class="result-msg" hidden></p>
+    </div>
+    <div class="result-stats">
+      <div class="stat"><div class="stat-label">正確率</div><div id="res-acc" class="stat-num">0%</div></div>
+      <div class="stat"><div class="stat-label">最高連擊</div><div id="res-combo" class="stat-num coral-text">0</div></div>
+      <div class="stat"><div class="stat-label">得分</div><div id="res-score" class="stat-num">0</div></div>
+      <div id="res-sticker" class="stat sticker">
+        <div class="sticker-badge" aria-hidden="true"><svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c6 4 9 11 8 20l-8 6-8-6c-1-9 2-16 8-20z"/><circle cx="20" cy="15" r="3"/><path d="M12 24l-5 6 7-1M28 24l5 6-7-1M17 33l3 4 3-4"/></svg></div>
+        <div><div class="sticker-label">新貼紙</div><div id="sticker-name" class="sticker-name"></div></div>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button type="button" id="res-map" class="btn btn-ghost">回關卡地圖</button>
+      <button type="button" id="res-retry" class="btn btn-ghost">再玩一次</button>
+      <button type="button" id="res-next" class="btn btn-main">下一關</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/rules.js"></script>
+<script src="js/keymap.js"></script>
+<script src="js/bank.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/session.js"></script>
+<script src="js/input.js"></script>
+<script src="js/keyboard.js"></script>
+<script src="js/play.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
